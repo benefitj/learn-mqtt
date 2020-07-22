@@ -72,61 +72,120 @@
 #### 报文结构
 
 - 控制报文由三部分组成：固定报文头 + 可变报文头 + 有效载荷
-- 固定报文头
 
-	- 第一个字节的前4位用于指定控制报文的标志位，后4位表示MQTT控制报文的类型；第二个字节为剩余长度，剩余长度可能包含多个字节；
+##### 固定报文头
 
-- 可变报文头
-- 有效载荷
-- 控制报文类型
+ - 第一个字节的前4位用于指定控制报文的标志位，后4位表示MQTT控制报文的类型；第二个字节为剩余长度，剩余长度可能包含多个字节；
+ - 控制报文类型
 
-    名字                值     报文流动方向                   描述
-    Reserved        0       禁止                                 保留
-    CONNECT       1       客户端到服务端              客户端请求连接服务端
-    CONNACK       2       服务端到客户端             连接报文确认
-    PUBLISH          3       两个方向都允许             发布消息
-    PUBACK           4       两个方向都允许             QoS 1消息发布收到确认
-    PUBREC           5       两个方向都允许             发布收到（ 保证交付第一步）
-    PUBREL            6       两个方向都允许             发布释放（ 保证交付第二步）
-    PUBCOMP       7       两个方向都允许             QoS 2消息发布完成（ 保证交互第三步）
-    SUBSCRIBE      8       客户端到服务端             客户端订阅请求
-    SUBACK            9       服务端到客户端             订阅请求报文确认
-    UNSUBSCRIBE 10    客户端到服务端             客户端取消订阅请求
-    UNSUBACK      11     服务端到客户端             取消订阅报文确认
-    PINGREQ          12     客户端到服务端             心跳请求
-    PINGRESP         13     服务端到客户端             心跳响应
-    DISCONNECT   14     客户端到服务端             客户端断开连接
-    Reserved           15     禁止                               保留
-    
-- 标志 Flags
+
+    名字          值     报文流动方向                 描述
+    Reserved      0      禁止                       保留
+    CONNECT       1      客户端到服务端              客户端请求连接服务端
+    CONNACK       2      服务端到客户端              连接报文确认
+    PUBLISH       3      两个方向都允许              发布消息
+    PUBACK        4      两个方向都允许              QoS 1消息发布收到确认
+    PUBREC        5      两个方向都允许              发布收到（ 保证交付第一步）
+    PUBREL        6      两个方向都允许              发布释放（ 保证交付第二步）
+    PUBCOMP       7      两个方向都允许              QoS 2消息发布完成（ 保证交互第三步）
+    SUBSCRIBE     8      客户端到服务端              客户端订阅请求
+    SUBACK        9      服务端到客户端              订阅请求报文确认
+    UNSUBSCRIBE   10     客户端到服务端              客户端取消订阅请求
+    UNSUBACK      11     服务端到客户端              取消订阅报文确认
+    PINGREQ       12     客户端到服务端              心跳请求
+    PINGRESP      13     服务端到客户端              心跳响应
+    DISCONNECT    14     客户端到服务端              客户端断开连接
+    Reserved      15     禁止                       保留
+
+
+ - 标志 Flags
 
     第一个字节的前4位(0~3)，收到非法的标志位必须关闭连接；
 
-    控制报文         固定报头标志        Bit 3        Bit 2        Bit 1        Bit 0
-    CONNECT       Reserved                 0             0             0               0
-    CONNACK       Reserved                 0             0             0               0
-    PUBLISH    Used in MQTT 3.1.1   DUP       QoS        QoS       RETAIN
-    PUBACK          Reserved                  0             0             0               0
-    PUBREC          Reserved                  0             0             0               0
-    PUBREL           Reserved                  0             0             1               0
-    PUBCOMP      Reserved                  0              0             0               0
-    SUBSCRIBE     Reserved                  0              0             1               0
-    SUBACK           Reserved                  0              0             0               0
-    UNSUBSCRIBE Reserved                 0              0             1               0
-    UNSUBACK      Reserved                  0              0             0               0
-    PINGREQ          Reserved                  0              0             0               0
-    PINGRESP        Reserved                   0              0             0               0
-    DISCONNECT  Reserved                   0              0             0               0
-    
-    - DUP =控制报文的重复分发标志
-	- QoS = PUBLISH报文的服务质量等级
-	- RETAIN = PUBLISH报文的保留标志
+
+    控制报文     固定报头标志        Bit 3        Bit 2        Bit 1        Bit 0
+    CONNECT     Reserved           0            0            0            0
+    CONNACK     Reserved           0            0            0            0
+    PUBLISH    Used in MQTT 3.1.1  DUP         QoS          QoS          RETAIN
+    PUBACK      Reserved           0            0            0            0
+    PUBREC      Reserved           0            0            0            0
+    PUBREL      Reserved           0            0            1            0
+    PUBCOMP     Reserved           0            0            0            0
+    SUBSCRIBE   Reserved           0            0            1            0
+    SUBACK      Reserved           0            0            0            0
+    UNSUBSCRIBE Reserved           0            0            1            0
+    UNSUBACK    Reserved           0            0            0            0
+    PINGREQ     Reserved           0            0            0            0
+    PINGRESP    Reserved           0            0            0            0
+    DISCONNECT  Reserved           0            0            0            0
+
+ - DUP = 控制报文的重复分发标志
+ - QoS = PUBLISH报文的服务质量等级
+ - RETAIN = PUBLISH报文的保留标志
+
 
 - 剩余长度(Remaining Length)
   
     - 固定报文头的第二个字节开始，表示当前报文的剩余字节数，包括可变报文头和有效载荷；
     - 第二个字节的前7位(0~127)表示长度，如果长度超过127，延续一个字节，以此类推，最多4个字节；
-    - 128为 0x80,0x01       0x80 + 0x01 = 128     如果最高位无符号左移7位等于1，表示还有数据，依次类推，
-    
-      0x?? % 128 = 得到
+    - 128为 0x80,0x01       0x80 + 0x01 = 128     如果最高位无符号左移7位等于1，表示还有数据，依次类推
+
+    PS. 剩余长度的计算可参考Java代码
+
+
+##### 可变报文头
+
+  可变报头在固定报头之后，根据报头的内容报文类型而不同，可变报头的标识符(Packet Identifier)存在于多个类型的报文里；
+
+  1. `PUBLISH(QoS > 0时), PUBACK, PUBREC, PUBREL, PUBCOMP, SUBSCRIBE, SUBACK, UNSUBSCRIBE, UNSUBACK`的控制报文的可变报头包含一个两字节的报文标识符;
+  2. SUBSCRIBE, UNSUBSCRIBE和PUBLISH(QoS大于0)控制报文必须包含一个非零的16位报文标识符(Packet Identifier);
+  3. 客户端每次发送一个新的这些类型的报文时都必须分配一个当前未使用的报文标识符；如果客户端对报文重发，需要标识符与发送时一致；
+  4. 客户端发送完报文得到确认后，可释放标识符；
+  5. QoS 1的PUBLISH对应的是PUBACK，QoS 2的PUBLISH对应的是PUBCOMP，与SUBSCRIBE或UNSUBSCRIBE对应的分别是SUBACK或UNSUBACK；
+  6. QoS 0的PUBLISH报文的条件也适用于服务端；
+  7. 客户端与服务端可独立的使用标识符，以提高并发性；
+
+  下面是控制报文是否需要报文标识符
+
+    控制报文      报文标识符字段
+    CONNECT      不需要
+    CONNACK      不需要
+    PUBLISH      需要（ 如果QoS > 0）
+    PUBACK       需要
+    PUBREC       需要
+    PUBREL       需要
+    PUBCOMP      需要
+    SUBSCRIBE    需要
+    SUBACK       需要
+    UNSUBSCRIBE  需要
+    UNSUBACK     需要
+    PINGREQ      不需要
+    PINGRESP     不需要
+    DISCONNECT   不需要
+
+
+
+
+##### 有效载荷
+
+  包含有效载荷的控制报文(Control Packets that contain a Payload)
+
+    控制报文      有效载荷
+    CONNECT      需要
+    CONNACK      不需要
+    PUBLISH      可选
+    PUBACK       不需要
+    PUBREC       不需要
+    PUBREL       不需要
+    PUBCOMP      不需要
+    SUBSCRIBE    需要
+    SUBACK       需要
+    UNSUBSCRIBE  需要
+    UNSUBACK     不需要
+    PINGREQ      不需要
+    PINGRESP     不需要
+    DISCONNECT   不需要
+
+
+
 
