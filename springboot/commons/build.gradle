@@ -1,0 +1,18 @@
+
+apply from: "${getRootDir()}/buildSystem/base-springboot.gradle"
+
+dependencies {
+
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
+
+//    // MQTT依赖
+//    implementation("org.springframework.integration:spring-integration-stream:5.3.1.RELEASE")
+//    implementation("org.springframework.integration:spring-integration-mqtt:5.3.1.RELEASE")
+//    implementation("org.springframework.boot:spring-boot-starter-integration:${springBootVersion}")
+
+    // MQTT依赖
+    compileOnly("org.springframework.integration:spring-integration-stream")
+    compileOnly("org.springframework.integration:spring-integration-mqtt")
+    compileOnly("org.springframework.boot:spring-boot-starter-integration")
+
+}

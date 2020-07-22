@@ -1,0 +1,18 @@
+plugins {
+    id 'org.springframework.boot' version '2.3.1.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+    id 'java'
+}
+
+apply from: "${getRootDir()}/buildSystem/base-springboot.gradle"
+
+dependencies {
+
+    compile project(":springboot:commons")
+
+    // MQTT依赖
+    implementation("org.springframework.integration:spring-integration-stream")
+    implementation("org.springframework.integration:spring-integration-mqtt")
+    implementation("org.springframework.boot:spring-boot-starter-integration")
+
+}
