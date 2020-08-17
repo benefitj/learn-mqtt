@@ -56,8 +56,8 @@ public class MqttUtils {
    * @param length 长度
    * @return 返回剩余长度的字节
    */
-  public static byte[] remainLengthEncode(int length) {
-    return remainLengthEncode(length, false);
+  public static byte[] remainingLengthEncode(int length) {
+    return remainingLengthEncode(length, false);
   }
 
   /**
@@ -67,7 +67,7 @@ public class MqttUtils {
    * @param local  是否为本地缓存的字节数组
    * @return 返回剩余长度的字节
    */
-  public static byte[] remainLengthEncode(int length, boolean local) {
+  public static byte[] remainingLengthEncode(int length, boolean local) {
     // 每个字节的高位用于标识是否还有长度，低7位
     byte[] buff = getBuff();
     Arrays.fill(buff, (byte) 0x00);
@@ -92,8 +92,8 @@ public class MqttUtils {
    * @param remainLength 剩余长度字节
    * @return 返回解码后的剩余长度
    */
-  public static int remainLengthDecode(byte[] remainLength) {
-    return remainLengthDecode(remainLength, 0, remainLength.length);
+  public static int remainingLengthDecode(byte[] remainLength) {
+    return remainingLengthDecode(remainLength, 0);
   }
 
   /**
@@ -101,21 +101,20 @@ public class MqttUtils {
    *
    * @param remainLength 剩余长度字节
    * @param start        开始的位置
-   * @param len          读取的长度
    * @return 返回解码后的剩余长度
    */
-  public static int remainLengthDecode(byte[] remainLength, int start, int len) {
+  public static int remainingLengthDecode(byte[] remainLength, int start) {
     int multiplier = 1;
     int value = 0;
-    for (int i = start; i < len; i++) {
-      byte encodedByte = remainLength[i];
+    for (int i = 0; i < 4; i++) {
+      byte encodedByte = remainLength[i + start];
       value += (encodedByte & 127) * multiplier;
       multiplier *= 128;
-      if (multiplier > MAX_LENGTH) {
-        throw new IllegalArgumentException("Malformed Remaining Length");
-      }
       if ((encodedByte & 128) == 0) {
         break;
+      }
+      if (multiplier > MAX_LENGTH) {
+        throw new IllegalArgumentException("Malformed Remaining Length");
       }
     }
     return value;

@@ -26,9 +26,9 @@ public class MqttUtilsTest {
 //    int length = 2097152; // 2 097 152 (0x80, 0x80, 0x80, 0x01)
     int length = 268435455; // 268 435 455 (0xFF, 0xFF, 0xFF, 0x7F)
 
-    byte[] remainLength = MqttUtils.remainLengthEncode(length);
+    byte[] remainLength = MqttUtils.remainingLengthEncode(length);
     System.err.println("remainLengthEncode: " + HexTools.byteToHex(remainLength));
-    System.err.println("remainLengthDecode: " + MqttUtils.remainLengthDecode(remainLength));
+    System.err.println("remainLengthDecode: " + MqttUtils.remainingLengthDecode(remainLength));
   }
 
 }
