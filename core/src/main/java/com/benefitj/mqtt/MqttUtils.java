@@ -1,37 +1,39 @@
 package com.benefitj.mqtt;
 
-import java.lang.ref.SoftReference;
+import com.benefitj.core.HexUtils;
+import com.benefitj.core.local.LocalCacheFactory;
+import com.benefitj.core.local.LocalMapCache;
+
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.function.Function;
 
 /**
  * MQTT工具
  */
 public class MqttUtils {
+  public static void main(String[] args) {
+
+    System.err.println(HexUtils.bytesToHex("MQTT".getBytes(StandardCharsets.UTF_8)));
+    System.err.println(HexUtils.bytesToInt(new byte[]{0x00, 0x04}));
+
+  }
+
+  // 0(0x00)                              127(0x7F)
+  // 128(0x00)                            16383(0xFF 0x7F)
+  // 16384(0x80 0x80 0x01)                2097151(0xFF 0xFF 0x7F)
+  // 2097152(0x80 0x80 0x80 0x01)         268435455(0xFF 0xFF 0xFF 0x7F)
+
   /**
-   * 协议支持的最大长度
+   * 协议支持的最大长度, 128 * 128 * 128 * 128 - 1
    */
-  private static final int MAX_LENGTH = 128 * 128 * 128 * 128;
+  private static final int MAX_LENGTH = 268435455;
 
   /**
    * 缓存剩余长度的字节
    */
-  private static final ThreadLocal<SoftReference<byte[]>> REMAIN_LENGTH_BUFF = ThreadLocal.withInitial(() -> new SoftReference<>(new byte[4]));
-  private static final ThreadLocal<Map<Integer, byte[]>> REMAIN_LENGTH_BUFF_MAP = ThreadLocal.withInitial(WeakHashMap::new);
-  private static final Function<Integer, byte[]> REMAIN_LENGTH_BUFF_CREATOR = byte[]::new;
+  private static final LocalMapCache<Integer, byte[]> BUFF_CACHE = LocalCacheFactory.newBytesWeakHashMapCache();
 
-  /**
-   * 获取软引用的缓存字节
-   */
-  private static byte[] getBuff() {
-    byte[] buff = REMAIN_LENGTH_BUFF.get().get();
-    if (buff == null) {
-      REMAIN_LENGTH_BUFF.remove();
-    }
-    return buff;
-  }
 
   /**
    * 获取缓存字节
@@ -41,13 +43,14 @@ public class MqttUtils {
   }
 
   /**
-   * 获取缓存字节
+   * 获取软引用的缓存字节
    */
   private static byte[] getBuff(int size, boolean local) {
+    byte[] buff = local ? BUFF_CACHE.computeIfAbsent(size) : new byte[size];
     if (local) {
-      return REMAIN_LENGTH_BUFF_MAP.get().computeIfAbsent(size, REMAIN_LENGTH_BUFF_CREATOR);
+      Arrays.fill(buff, (byte) 0x00);
     }
-    return new byte[size];
+    return buff;
   }
 
   /**
@@ -68,9 +71,11 @@ public class MqttUtils {
    * @return 返回剩余长度的字节
    */
   public static byte[] remainingLengthEncode(int length, boolean local) {
+    if (length > MAX_LENGTH) {
+      throw new IllegalArgumentException("Required max length " + MAX_LENGTH + ", current length: " + length);
+    }
     // 每个字节的高位用于标识是否还有长度，低7位
-    byte[] buff = getBuff();
-    Arrays.fill(buff, (byte) 0x00);
+    byte[] buff = getBuff(4);
     int index = 0;
     int x = length;
     do {
@@ -81,9 +86,12 @@ public class MqttUtils {
         buff[index] = (byte) (buff[index] | 128);
       index++;
     } while (x > 0 && index < 4);
-    byte[] remainLength = getBuff(index, local);
-    System.arraycopy(buff, 0, remainLength, 0, remainLength.length);
-    return remainLength;
+    if (index != buff.length || !local) {
+      byte[] remainLength = getBuff(index, local);
+      System.arraycopy(buff, 0, remainLength, 0, remainLength.length);
+      return remainLength;
+    }
+    return buff;
   }
 
   /**
@@ -106,13 +114,14 @@ public class MqttUtils {
   public static int remainingLengthDecode(byte[] remainLength, int start) {
     int multiplier = 1;
     int value = 0;
+    byte encodedByte;
     for (int i = 0; i < 4; i++) {
-      byte encodedByte = remainLength[i + start];
+      encodedByte = remainLength[i + start];
       value += (encodedByte & 127) * multiplier;
-      multiplier *= 128;
       if ((encodedByte & 128) == 0) {
         break;
       }
+      multiplier *= 128;
       if (multiplier > MAX_LENGTH) {
         throw new IllegalArgumentException("Malformed Remaining Length");
       }
