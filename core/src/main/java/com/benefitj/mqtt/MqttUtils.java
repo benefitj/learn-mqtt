@@ -4,8 +4,6 @@ import com.benefitj.core.HexUtils;
 import com.benefitj.core.local.LocalCacheFactory;
 import com.benefitj.core.local.LocalMapCache;
 
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -14,8 +12,33 @@ import java.util.Arrays;
 public class MqttUtils {
   public static void main(String[] args) {
 
-    System.err.println(HexUtils.bytesToHex("MQTT".getBytes(StandardCharsets.UTF_8)));
-    System.err.println(HexUtils.bytesToInt(new byte[]{0x00, 0x04}));
+//    System.err.println(HexUtils.bytesToHex("MQTT".getBytes(StandardCharsets.UTF_8)));
+//    System.err.println(HexUtils.bytesToInt(new byte[]{0x00, 0x04}));
+
+
+    // 0x04
+    // 0b0000 0100
+
+    System.err.println(HexUtils.mask((byte) 0b11011001, 1, 6)); // 1
+    System.err.println(HexUtils.mask((byte) 0b11011001, 2, 7)); // 3
+    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 7)); // 6
+    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 6)); // 5
+    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 5)); // 3
+    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 3)); // 9
+    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 7)); // 13
+    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 6)); // 89
+    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 5)); // 89
+    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 7)); // 108
+    System.err.println(HexUtils.mask((byte) 0b11011001, 8, 0)); // 217
+
+
+    byte[] bytes = HexUtils.intToBytes(16384);
+//    byte[] bytes = HexUtils.intToBytes(2097151);
+//    byte[] bytes = HexUtils.intToBytes(2097152);
+//    byte[] bytes = HexUtils.intToBytes(268435455);
+    System.err.println(HexUtils.bytesToHex(bytes));
+    System.err.println(HexUtils.bytesToHex(bytes, " | "));
+
 
   }
 

@@ -198,7 +198,7 @@ public class ConnectImpl implements CONNECT<byte[]> {
    * 获取报文数据
    */
   @Override
-  public byte[] getPacket() {
+  public byte[] getPayload() {
     return null;
   }
 

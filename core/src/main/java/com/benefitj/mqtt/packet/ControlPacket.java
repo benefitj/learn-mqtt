@@ -23,9 +23,9 @@ public interface ControlPacket<T> {
   int getRemainingLength();
 
   /**
-   * 获取报文数据
+   * 获取有效载荷
    */
-  T getPacket();
+  T getPayload();
 
   /**
    * 获取控制报文类型
