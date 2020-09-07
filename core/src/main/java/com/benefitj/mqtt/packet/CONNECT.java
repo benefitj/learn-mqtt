@@ -126,12 +126,52 @@ package com.benefitj.mqtt.packet;
  *           客户端发送 0x02 的CONNACK报文，并关闭此连接；
  *
  *    遗嘱主题 Will Topic
- *        遗嘱标志被设置为1，
+ *        遗嘱标志被设置为1，客户端标识符之后的字段便是遗嘱主题，必须是字符串；
+ *
+ *    遗嘱消息 Will Message
+ *        遗嘱标志被设置为1，在遗嘱主题字段之后
+ *
+ *    用户名 User Name（同上，略）
+ *    密码 Password
+ *        密码除了2个字节的长度，紧跟着最多65535个字节长度的二进制数据
  *
  *
+ * 报文响应 Response
+ *     服务端可以支持多个版本的协议；
  *
+ *     如果协议是MQTT3.1.1，连接验证如下：
+ *      1. 连接建立后，如果服务端未在合理的时间内收到CONNECT报文，服务端应该直接关闭连接；
+ *      2. 服务端按照上面的报文要求验证报文，如果不符合规范，服务端应该直接关闭连接；
+ *      3. 如果服务端在报文符合规范后，继续做进一步检查，如身份认证和授权时，这些检查未通过，
+ *         服务端应该发送一个非零的CONNACK报文，并关闭连接；
+ *
+ *     验证成功后的步骤如下：
+ *      1. 如果客户端ID表明已连接到服务端，服务端必须断开原有的客户端；
+ *      2. 服务端按照上面的 Clean Session 要求清理回话；
+ *      3. 服务端发送一个为零的CONNACK报文作为CONNECT报文的确认响应；
+ *      4. 分发消息和保持连接状态；
+ *
+ * @author DINGXIUAN
  */
-public interface CONNECT<T> extends ControlPacket<T> {
+public interface CONNECT extends ControlPacket {
+
+  /**
+   * 获取控制报文的类型
+   */
+  @Override
+  ControlPacketType getType();
+
+  /**
+   * 获取客户端标识
+   */
+  String getClientId();
+
+  /**
+   * 设置客户端标识
+   *
+   * @param clientId 客户端标识
+   */
+  void setClientId(String clientId);
 
   /**
    * 获取协议名
@@ -148,50 +188,43 @@ public interface CONNECT<T> extends ControlPacket<T> {
   /**
    * 获取协议等级
    */
-  byte getProtocolLevel();
+  int getProtocolLevel();
 
   /**
    * 设置协议等级
    *
    * @param protocolLevel 协议等级
    */
-  void setProtocolLevel(byte protocolLevel);
+  void setProtocolLevel(int protocolLevel);
 
   /**
-   * 获取连接标志
+   * 是否设置遗嘱标志
    */
-  byte getConnectFlags();
-
-//  /**
-//   * 设置连接标志
-//   *
-//   * @param connectFlags 连接标志
-//   */
-//  void setConnectFlags(byte connectFlags);
+  boolean isWillFlag();
 
   /**
    * 设置遗嘱标志
    *
-   * @param willFlag 遗嘱标志
+   * @param willFlag 是否设置
    */
   void setWillFlag(boolean willFlag);
 
   /**
-   * 是否设置遗嘱
+   * 获取 Will QoS，服务质量，
    */
-  boolean isWillFlag();
+  int getWillQoS();
 
   /**
    * 设置 Will QoS
    *
    * @param willQoS 值
    */
-  void setWillQoS(byte willQoS);
+  void setWillQoS(int willQoS);
 
   /**
-   * 获取 Will QoS，服务质量，
+   * 获取 Will Retain
    */
-  byte getWillQoS();
+  boolean isWillRetain();
 
   /**
    * 设置 Will Retain
@@ -201,21 +234,45 @@ public interface CONNECT<T> extends ControlPacket<T> {
   void setWillRetain(boolean willRetain);
 
   /**
-   * 获取 Will Retain
+   * 获取遗嘱主题
    */
-  byte getWillRetain();
+  String getWillTopic();
+
+  /**
+   * 设置遗嘱主题
+   *
+   * @param willTopic 遗嘱主题
+   */
+  void setWillTopic(String willTopic);
+
+  /**
+   * 获取遗嘱消息
+   */
+  String getWillMessage();
+
+  /**
+   * 设置遗嘱消息
+   *
+   * @param willMessage 遗嘱消息
+   */
+  void setWillMessage(String willMessage);
+
+  /**
+   * 获取用户名
+   */
+  String getUsername();
 
   /**
    * 设置用户名
    *
    * @param username 用户名
    */
-  void setUsername(byte[] username);
+  void setUsername(String username);
 
   /**
-   * 获取用户名
+   * 获取密码
    */
-  byte[] getUsername();
+  byte[] getPassword();
 
   /**
    * 设置密码
@@ -225,9 +282,9 @@ public interface CONNECT<T> extends ControlPacket<T> {
   void setPassword(byte[] password);
 
   /**
-   * 获取密码
+   * 获取保持连接的时长，以秒为单位
    */
-  byte[] getPassword();
+  int getKeepAlive();
 
   /**
    * 设置保持连接的时长，以秒为单位
@@ -235,10 +292,5 @@ public interface CONNECT<T> extends ControlPacket<T> {
    * @param keepAlive 保持连接时长(秒)
    */
   void setKeepAlive(int keepAlive);
-
-  /**
-   * 获取保持连接的时长，以秒为单位
-   */
-  int getKeepAlive();
 
 }

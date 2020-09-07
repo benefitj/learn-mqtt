@@ -3,8 +3,21 @@ package com.benefitj.mqtt.packet.impl;
 import com.benefitj.mqtt.packet.CONNECT;
 import com.benefitj.mqtt.packet.ControlPacketType;
 
-public class ConnectImpl implements CONNECT<byte[]> {
+/**
+ * CONNECT 报文实现, {@link CONNECT}
+ *
+ * 连接标志位:
+ *  Bit    7         6          5         4  3           2            1           0
+ * value username password  will Retain  will QoS   will Flag   Clean Session  Reserved
+ *
+ * @author DINGXIUAN
+ */
+public class ConnectImpl implements CONNECT {
 
+  /**
+   * 客户端唯一标识
+   */
+  private String clientId;
   /**
    * 协议名
    */
@@ -12,11 +25,50 @@ public class ConnectImpl implements CONNECT<byte[]> {
   /**
    * 协议等级
    */
-  private byte protocolLevel;
+  private int protocolLevel;
   /**
-   * 连接标志位
+   * 遗嘱标志
    */
-  private byte connectFlags = 0;
+  private boolean willFlag;
+  /**
+   * 遗嘱 QoS
+   */
+  private int willQoS;
+  /**
+   * 遗嘱保留
+   */
+  private boolean willRetain;
+  /**
+   * 遗嘱主题
+   */
+  private String willTopic;
+  /**
+   * 遗嘱消息
+   */
+  private String willMessage;
+  /**
+   * 用户名
+   */
+  private String username;
+  /**
+   * 密码
+   */
+  private byte[] password;
+  /**
+   * 保持连接时长
+   */
+  private int keepAlive = 0;
+
+  public ConnectImpl() {
+  }
+
+  /**
+   * 获取控制报文的类型
+   */
+  @Override
+  public final ControlPacketType getType() {
+    return ControlPacketType.CONNECT;
+  }
 
   /**
    * 获取协议名
@@ -24,6 +76,24 @@ public class ConnectImpl implements CONNECT<byte[]> {
   @Override
   public String getProtocolName() {
     return protocolName;
+  }
+
+  /**
+   * 获取客户端标识
+   */
+  @Override
+  public String getClientId() {
+    return this.clientId;
+  }
+
+  /**
+   * 设置客户端标识
+   *
+   * @param clientId 客户端标识
+   */
+  @Override
+  public void setClientId(String clientId) {
+    this.clientId = clientId;
   }
 
   /**
@@ -40,7 +110,7 @@ public class ConnectImpl implements CONNECT<byte[]> {
    * 获取协议等级
    */
   @Override
-  public byte getProtocolLevel() {
+  public int getProtocolLevel() {
     return protocolLevel;
   }
 
@@ -50,16 +120,16 @@ public class ConnectImpl implements CONNECT<byte[]> {
    * @param protocolLevel 协议等级
    */
   @Override
-  public void setProtocolLevel(byte protocolLevel) {
+  public void setProtocolLevel(int protocolLevel) {
     this.protocolLevel = protocolLevel;
   }
 
   /**
-   * 获取连接标志
+   * 是否设置遗嘱
    */
   @Override
-  public byte getConnectFlags() {
-    return 0;
+  public boolean isWillFlag() {
+    return this.willFlag;
   }
 
   /**
@@ -69,15 +139,15 @@ public class ConnectImpl implements CONNECT<byte[]> {
    */
   @Override
   public void setWillFlag(boolean willFlag) {
-
+    this.willFlag = willFlag;
   }
 
   /**
-   * 是否设置遗嘱
+   * 获取 Will QoS，服务质量，
    */
   @Override
-  public boolean isWillFlag() {
-    return false;
+  public int getWillQoS() {
+    return this.willQoS;
   }
 
   /**
@@ -86,16 +156,16 @@ public class ConnectImpl implements CONNECT<byte[]> {
    * @param willQoS 值
    */
   @Override
-  public void setWillQoS(byte willQoS) {
-
+  public void setWillQoS(int willQoS) {
+    this.willQoS = willQoS;
   }
 
   /**
-   * 获取 Will QoS，服务质量，
+   * 获取 Will Retain
    */
   @Override
-  public byte getWillQoS() {
-    return 0;
+  public boolean isWillRetain() {
+    return this.willRetain;
   }
 
   /**
@@ -105,15 +175,51 @@ public class ConnectImpl implements CONNECT<byte[]> {
    */
   @Override
   public void setWillRetain(boolean willRetain) {
-
+    this.willRetain = willRetain;
   }
 
   /**
-   * 获取 Will Retain
+   * 获取遗嘱主题
    */
   @Override
-  public byte getWillRetain() {
-    return 0;
+  public String getWillTopic() {
+    return this.willTopic;
+  }
+
+  /**
+   * 设置遗嘱主题
+   *
+   * @param willTopic 遗嘱主题
+   */
+  @Override
+  public void setWillTopic(String willTopic) {
+    this.willTopic = willTopic;
+  }
+
+  /**
+   * 获取遗嘱消息
+   */
+  @Override
+  public String getWillMessage() {
+    return this.willMessage;
+  }
+
+  /**
+   * 设置遗嘱消息
+   *
+   * @param willMessage 遗嘱消息
+   */
+  @Override
+  public void setWillMessage(String willMessage) {
+    this.willMessage = willMessage;
+  }
+
+  /**
+   * 获取用户名
+   */
+  @Override
+  public String getUsername() {
+    return this.username;
   }
 
   /**
@@ -122,16 +228,16 @@ public class ConnectImpl implements CONNECT<byte[]> {
    * @param username 用户名
    */
   @Override
-  public void setUsername(byte[] username) {
-
+  public void setUsername(String username) {
+    this.username = username;
   }
 
   /**
-   * 获取用户名
+   * 获取密码
    */
   @Override
-  public byte[] getUsername() {
-    return new byte[0];
+  public byte[] getPassword() {
+    return this.password;
   }
 
   /**
@@ -141,15 +247,15 @@ public class ConnectImpl implements CONNECT<byte[]> {
    */
   @Override
   public void setPassword(byte[] password) {
-
+    this.password = password;
   }
 
   /**
-   * 获取密码
+   * 获取保持连接的时长，以秒为单位
    */
   @Override
-  public byte[] getPassword() {
-    return new byte[0];
+  public int getKeepAlive() {
+    return this.keepAlive;
   }
 
   /**
@@ -159,54 +265,95 @@ public class ConnectImpl implements CONNECT<byte[]> {
    */
   @Override
   public void setKeepAlive(int keepAlive) {
-
+    this.keepAlive = keepAlive;
   }
 
-  /**
-   * 获取保持连接的时长，以秒为单位
-   */
-  @Override
-  public int getKeepAlive() {
-    return 0;
-  }
 
-  /**
-   * 原始报文数据
-   */
-  @Override
-  public byte[] getRaw() {
-    return new byte[0];
-  }
+  public static final class Builder {
+    private String clientId;
+    private String protocolName;
+    private byte protocolLevel;
+    private boolean willFlag;
+    private int willQoS;
+    private boolean willRetain;
+    private String willTopic;
+    private String willMessage;
+    private String username;
+    private byte[] password;
+    private int keepAlive;
 
-  /**
-   * 获取标志位
-   */
-  @Override
-  public byte getFlags() {
-    return 0;
-  }
+    public Builder() {
+    }
 
-  /**
-   * 获取剩余长度
-   */
-  @Override
-  public int getRemainingLength() {
-    return 0;
-  }
+    public Builder setClientId(String clientId) {
+      this.clientId = clientId;
+      return this;
+    }
 
-  /**
-   * 获取报文数据
-   */
-  @Override
-  public byte[] getPayload() {
-    return null;
-  }
+    public Builder setProtocolName(String protocolName) {
+      this.protocolName = protocolName;
+      return this;
+    }
 
-  /**
-   * 获取控制报文类型
-   */
-  @Override
-  public ControlPacketType getType() {
-    return null;
+    public Builder setProtocolLevel(byte protocolLevel) {
+      this.protocolLevel = protocolLevel;
+      return this;
+    }
+
+    public Builder setWillFlag(boolean willFlag) {
+      this.willFlag = willFlag;
+      return this;
+    }
+
+    public Builder setWillQoS(int willQoS) {
+      this.willQoS = willQoS;
+      return this;
+    }
+
+    public Builder setWillRetain(boolean willRetain) {
+      this.willRetain = willRetain;
+      return this;
+    }
+
+    public Builder setWillTopic(String willTopic) {
+      this.willTopic = willTopic;
+      return this;
+    }
+
+    public Builder setWillMessage(String willMessage) {
+      this.willMessage = willMessage;
+      return this;
+    }
+
+    public Builder setUsername(String username) {
+      this.username = username;
+      return this;
+    }
+
+    public Builder setPassword(byte[] password) {
+      this.password = password;
+      return this;
+    }
+
+    public Builder setKeepAlive(int keepAlive) {
+      this.keepAlive = keepAlive;
+      return this;
+    }
+
+    public ConnectImpl build() {
+      ConnectImpl connect = new ConnectImpl();
+      connect.setClientId(this.clientId);
+      connect.setProtocolName(this.protocolName);
+      connect.setProtocolLevel(this.protocolLevel);
+      connect.setWillFlag(this.willFlag);
+      connect.setWillQoS(this.willQoS);
+      connect.setWillRetain(this.willRetain);
+      connect.setWillTopic(this.willTopic);
+      connect.setWillMessage(this.willMessage);
+      connect.setUsername(this.username);
+      connect.setPassword(this.password);
+      connect.setKeepAlive(this.keepAlive);
+      return connect;
+    }
   }
 }

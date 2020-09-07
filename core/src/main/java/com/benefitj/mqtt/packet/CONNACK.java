@@ -5,5 +5,5 @@ package com.benefitj.mqtt.packet;
  *
  * value = 2
  */
-public interface CONNACK extends ControlPacket<byte[]>  {
+public interface CONNACK extends ControlPacket {
 }

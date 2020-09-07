@@ -1,13 +1,27 @@
 package com.benefitj.mqtt;
 
-import com.benefitj.core.HexUtils;
+import com.benefitj.core.IdUtils;
 import com.benefitj.core.local.LocalCacheFactory;
 import com.benefitj.core.local.LocalMapCache;
+import com.benefitj.mqtt.packet.CONNECT;
+import com.benefitj.mqtt.packet.ControlPacket;
+import com.benefitj.mqtt.packet.ControlPacketWrapper;
+import com.benefitj.mqtt.packet.impl.ConnectImpl;
+import org.apache.commons.lang3.StringUtils;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
  * MQTT工具
+
+ * 报文格式：
+ *    Fixed Header   Variable Header    Payload
+ *     固定报头     +   可变报头      +   有效载荷
+ *
+ * 固定报头： 1个字节(报文类型 + 标志位) +  1 ~ 4 个字节的剩余长度
+ * 可变报头： 参考控制报文
+ * 有效载荷： ......
  */
 public class MqttUtils {
   public static void main(String[] args) {
@@ -19,25 +33,51 @@ public class MqttUtils {
     // 0x04
     // 0b0000 0100
 
-    System.err.println(HexUtils.mask((byte) 0b11011001, 1, 6)); // 1
-    System.err.println(HexUtils.mask((byte) 0b11011001, 2, 7)); // 3
-    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 7)); // 6
-    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 6)); // 5
-    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 5)); // 3
-    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 3)); // 9
-    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 7)); // 13
-    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 6)); // 89
-    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 5)); // 89
-    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 7)); // 108
-    System.err.println(HexUtils.mask((byte) 0b11011001, 8, 0)); // 217
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 1, 6)); // 1
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 2, 7)); // 3
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 7)); // 6
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 6)); // 5
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 3, 5)); // 3
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 3)); // 9
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 4, 7)); // 13
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 6)); // 89
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 5)); // 89
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 7, 7)); // 108
+//    System.err.println(HexUtils.mask((byte) 0b11011001, 8, 0)); // 217
 
 
-    byte[] bytes = HexUtils.intToBytes(16384);
-//    byte[] bytes = HexUtils.intToBytes(2097151);
-//    byte[] bytes = HexUtils.intToBytes(2097152);
-//    byte[] bytes = HexUtils.intToBytes(268435455);
-    System.err.println(HexUtils.bytesToHex(bytes));
-    System.err.println(HexUtils.bytesToHex(bytes, " | "));
+////    byte[] bytes = HexUtils.intToBytes(16384);
+////    byte[] bytes = HexUtils.intToBytes(2097151);
+////    byte[] bytes = HexUtils.intToBytes(2097152);
+////    byte[] bytes = HexUtils.intToBytes(268435455);
+//    byte[] bytes = HexUtils.intToBytes(278435455);
+//    System.err.println(HexUtils.bytesToHex(bytes));
+//    System.err.println(HexUtils.bytesToHex(bytes, " | "));
+
+
+    ConnectImpl connect = new ConnectImpl();
+    // 设置 client ID
+    connect.setClientId(IdUtils.nextId("mqtt", null, 12));
+    // 协议名
+    connect.setProtocolName("MQTT");
+    // 协议等级
+    connect.setProtocolLevel(4);
+    // 遗嘱标志
+    connect.setWillFlag(true);
+    // 遗嘱保留
+    connect.setWillRetain(true);
+    // 遗嘱 QoS
+    connect.setWillQoS(0);
+    // 遗嘱主题
+    connect.setWillTopic("test");
+    // 遗嘱消息
+    connect.setWillMessage("呵呵, game over!");
+    // 用户名
+    connect.setUsername("admin");
+    // 密码
+    connect.setPassword("123456".getBytes());
+    // 保持30秒
+    connect.setKeepAlive(30);
 
 
   }
@@ -151,5 +191,54 @@ public class MqttUtils {
     }
     return value;
   }
+
+//  public byte[] encode(CONNECT connect) {
+//    final ByteBuffer buf = ByteBuffer.allocate(1024);
+////    // 固定报头
+////    ControlPacketType packetType = connect.getPacketType();
+////    byte type = (byte) (packetType.getValue() << 4);
+////    type |= type & ;
+////    buf.put();
+//
+//    // 固定报头:
+//    //  类型和标志位00010000
+//    //  剩余长度(待计算)
+//
+//    // 客户端标识
+//    String clientId = connect.getClientId();
+//    if (StringUtils.isEmpty(clientId)) {
+//      throw new IllegalArgumentException("Required client id");
+//    }
+//    buf.put(clientId.getBytes());
+//
+//
+//    // 可变报头:
+//    //
+//
+//
+//    buf.clear();
+//  }
+//
+//  /**
+//   * 控制报文头
+//   *
+//   * @param packet 报文
+//   * @return 返回报文头
+//   */
+//  public byte[] encodeFixedHeader(ControlPacket packet) {
+//    return encodeFixedHeader(packet, true);
+//  }
+//
+//  /**
+//   * 控制报文头
+//   *
+//   * @param packet 报文
+//   * @param local  是否为本地缓冲数据
+//   * @return 返回报文头
+//   */
+//  public byte[] encodeFixedHeader(ControlPacket packet, boolean local) {
+//
+//
+//  }
 
 }
