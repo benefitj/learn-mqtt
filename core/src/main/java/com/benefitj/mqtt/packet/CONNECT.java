@@ -95,7 +95,7 @@ package com.benefitj.mqtt.packet;
  *       标志位的第5位，遗嘱标志位为0，Will Retain必须为0，否则可以为 0 或 1 ；
  *
  *     密码标志 (Password Flag)
- *       连接标志的第6位，标志位为 1，有效载荷必须包含密码字段，用户名标志位为0，密码标志位必须为0；
+ *       连接标志的第6位，标志位为 1，有效载荷必须包含密码字段；用户名标志位为0，密码标志位必须为0；
  *       否则，标志位为0，有效载荷必须不能包含密码；
  *
  *     用户名标志 (User Name Flag)
@@ -196,6 +196,18 @@ public interface CONNECT extends ControlPacket {
    * @param protocolLevel 协议等级
    */
   void setProtocolLevel(int protocolLevel);
+
+  /**
+   * 是否清理回话
+   */
+  boolean isCleanSession();
+
+  /**
+   * 设置是否清理回话
+   *
+   * @param cleanSession 是否清理
+   */
+  void setCleanSession(boolean cleanSession);
 
   /**
    * 是否设置遗嘱标志

@@ -1,24 +1,25 @@
 package com.benefitj.mqtt;
 
+import com.benefitj.core.HexUtils;
 import com.benefitj.core.IdUtils;
 import com.benefitj.core.local.LocalCacheFactory;
 import com.benefitj.core.local.LocalMapCache;
 import com.benefitj.mqtt.packet.CONNECT;
-import com.benefitj.mqtt.packet.ControlPacket;
-import com.benefitj.mqtt.packet.ControlPacketWrapper;
+import com.benefitj.mqtt.packet.ControlPacketType;
 import com.benefitj.mqtt.packet.impl.ConnectImpl;
 import org.apache.commons.lang3.StringUtils;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
  * MQTT工具
-
+ * <p>
  * 报文格式：
- *    Fixed Header   Variable Header    Payload
- *     固定报头     +   可变报头      +   有效载荷
- *
+ * Fixed Header   Variable Header    Payload
+ * 固定报头     +   可变报头      +   有效载荷
+ * <p>
  * 固定报头： 1个字节(报文类型 + 标志位) +  1 ~ 4 个字节的剩余长度
  * 可变报头： 参考控制报文
  * 有效载荷： ......
@@ -79,6 +80,8 @@ public class MqttUtils {
     // 保持30秒
     connect.setKeepAlive(30);
 
+    byte[] encode = encode(connect);
+    System.err.println("encode: " + HexUtils.bytesToHex(encode));
 
   }
 
@@ -145,8 +148,9 @@ public class MqttUtils {
       buff[index] = (byte) (x % 128);
       x = x / 128;
       // if there are more data to encode, set the top bit of this byte
-      if (x > 0)
+      if (x > 0) {
         buff[index] = (byte) (buff[index] | 128);
+      }
       index++;
     } while (x > 0 && index < 4);
     if (index != buff.length || !local) {
@@ -192,32 +196,132 @@ public class MqttUtils {
     return value;
   }
 
-//  public byte[] encode(CONNECT connect) {
-//    final ByteBuffer buf = ByteBuffer.allocate(1024);
-////    // 固定报头
-////    ControlPacketType packetType = connect.getPacketType();
-////    byte type = (byte) (packetType.getValue() << 4);
-////    type |= type & ;
-////    buf.put();
-//
-//    // 固定报头:
-//    //  类型和标志位00010000
-//    //  剩余长度(待计算)
-//
-//    // 客户端标识
-//    String clientId = connect.getClientId();
-//    if (StringUtils.isEmpty(clientId)) {
-//      throw new IllegalArgumentException("Required client id");
-//    }
-//    buf.put(clientId.getBytes());
-//
-//
-//    // 可变报头:
-//    //
-//
-//
-//    buf.clear();
-//  }
+  public static byte[] encode(CONNECT connect) {
+    if (StringUtils.isEmpty(connect.getClientId())) {
+      throw new IllegalArgumentException("Required client id");
+    }
+
+    // 检查 will topic 和 will message
+    if (connect.isWillFlag() && (StringUtils.isBlank(connect.getWillTopic())
+        || StringUtils.isBlank(connect.getWillMessage()))) {
+      throw new IllegalStateException("连接标志为1，必须设置will topic和will message");
+    }
+
+    final ByteBuffer buf = ByteBuffer.allocate(1024);
+    // 固定报头
+    ControlPacketType packetType = connect.getType();
+    //byte type = (byte) (packetType.getValue() << 4);
+    ////type |= type & connect.geFlags(); // flags为0000
+    //buf.put(type); // fixed header
+
+
+    // 固定报头:
+    //  类型和标志位00010000
+    //  剩余长度(待计算)
+
+
+    // 可变报头: 协议名(2 + n)、协议等级(1)、连接标志(1)、保持连接(2)
+
+    // 协议名
+    put(buf, connect.getProtocolName(), "MQTT");
+    // 协议等级
+    buf.put((byte) (connect.getProtocolLevel() & 0xFF));
+
+    // 连接标志
+    // Bit   7         6          5          4  3       2           1             0
+    //  *  username  password  will Retain  will QoS  will Flag  Clean Session  Reserved
+    byte connectFlags = 0b00000000;
+    // 清理回话
+    if (connect.isCleanSession()) {
+      connectFlags |= 0b00000010;
+    }
+    // 遗嘱标志
+    if (connect.isWillFlag()) {
+      // Will Flag
+      connectFlags |= 0b00000100;
+      // Will QoS
+      connectFlags |= ((byte) 0b00011000);
+      // Will Retain
+      if (connect.isWillRetain()) {
+        connectFlags |= 0b00100000;
+      }
+    }
+    if (StringUtils.isNotBlank(connect.getUsername())) {
+      connectFlags |= 0b10000000;
+      // 密码
+      if (connect.getPassword() != null) {
+        connectFlags |= 0b01000000;
+      }
+    }
+    // 连接标志
+    buf.put(connectFlags);
+    // 保持连接
+    buf.put(shortToBytes((short) connect.getKeepAlive()));
+
+    // 有效载荷 ...
+
+    // 客户端标识
+    put(buf, connect.getClientId());
+    // will topic
+    put(buf, connect.getWillTopic());
+    // will message
+    put(buf, connect.getWillMessage());
+    // username
+    put(buf, connect.getUsername());
+    // password
+    put(buf, connect.getPassword());
+
+    int position = buf.position();
+    System.err.println("length: " + position);
+    System.err.println("buf ==>: " + HexUtils.bytesToHex(buf.array()));
+
+    buf.flip();
+    byte[] buf2 = getBuff(position);
+    buf.get(buf2);
+    System.err.println("buf2 ==>: " + HexUtils.bytesToHex(buf2));
+
+    return null;
+  }
+
+
+  private static ByteBuffer put(ByteBuffer buf, String s) {
+    return put(buf, s, null);
+  }
+
+  private static ByteBuffer put(ByteBuffer buf, String s, String defaultValue) {
+    if (StringUtils.isNotBlank(defaultValue) && StringUtils.isBlank(s)) {
+      s = defaultValue;
+    }
+    if (StringUtils.isNotEmpty(s)) {
+      return put(buf, s.getBytes(StandardCharsets.UTF_8));
+    }
+    return put(buf, (byte[]) null);
+  }
+
+  private static ByteBuffer put(ByteBuffer buf, byte[] data) {
+    return put(buf, data, true);
+  }
+
+  private static ByteBuffer put(ByteBuffer buf, byte[] data, boolean length) {
+    if (data != null) {
+      buf.put(shortToBytes(data.length));
+      buf.put(data);
+    } else {
+      if (length) {
+        buf.put(shortToBytes(0));
+      }
+    }
+    return buf;
+  }
+
+  public static byte[] shortToBytes(int v) {
+    return shortToBytes((short) v);
+  }
+
+  public static byte[] shortToBytes(short v) {
+    return HexUtils.shortToBytes(v);
+  }
+
 //
 //  /**
 //   * 控制报文头
@@ -225,7 +329,7 @@ public class MqttUtils {
 //   * @param packet 报文
 //   * @return 返回报文头
 //   */
-//  public byte[] encodeFixedHeader(ControlPacket packet) {
+//  public static byte[] encodeFixedHeader(ControlPacket packet) {
 //    return encodeFixedHeader(packet, true);
 //  }
 //
@@ -236,7 +340,7 @@ public class MqttUtils {
 //   * @param local  是否为本地缓冲数据
 //   * @return 返回报文头
 //   */
-//  public byte[] encodeFixedHeader(ControlPacket packet, boolean local) {
+//  public static byte[] encodeFixedHeader(ControlPacket packet, boolean local) {
 //
 //
 //  }

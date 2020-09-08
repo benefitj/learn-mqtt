@@ -27,6 +27,10 @@ public class ConnectImpl implements CONNECT {
    */
   private int protocolLevel;
   /**
+   * 清理回话
+   */
+  private boolean cleanSession;
+  /**
    * 遗嘱标志
    */
   private boolean willFlag;
@@ -122,6 +126,24 @@ public class ConnectImpl implements CONNECT {
   @Override
   public void setProtocolLevel(int protocolLevel) {
     this.protocolLevel = protocolLevel;
+  }
+
+  /**
+   * 是否清理回话
+   */
+  @Override
+  public boolean isCleanSession() {
+    return this.cleanSession;
+  }
+
+  /**
+   * 设置是否清理回话
+   *
+   * @param cleanSession 是否清理
+   */
+  @Override
+  public void setCleanSession(boolean cleanSession) {
+    this.cleanSession = cleanSession;
   }
 
   /**
