@@ -1,13 +1,95 @@
 package com.benefitj.mqtt.buf;
 
+import com.benefitj.core.HexUtils;
+
 import java.util.Arrays;
+import java.util.Random;
 
 /**
  * 字节缓冲
  */
 public class ByteBuf {
+  public static void main(String[] args) {
+
+    ByteBuf buf = new ByteBuf(40, 100);
+
+    Random r = new Random();
+    byte[] bytes = new byte[20];
+    for (int i = 0; i < bytes.length; i++) {
+      bytes[i] = (byte) r.nextInt(255);
+    }
+    buf.write(bytes);
+    buf.write(bytes);
+
+    // 40
+    System.err.println("readerIndex: " + buf.getReaderIndex());
+    System.err.println("writerIndex: " + buf.getWriterIndex());
+    System.err.println("readableBytes: " + buf.readableBytes());
+    System.err.println("writableBytes: " + buf.writableBytes());
+
+    // 可读30，可写10
+    System.err.println("read: " + HexUtils.bytesToHex(buf.readBytes(10), " | ", 4));
+
+    System.err.println("\n-------------------\n");
+
+    System.err.println("readerIndex: " + buf.getReaderIndex());
+    System.err.println("writerIndex: " + buf.getWriterIndex());
+    System.err.println("readableBytes: " + buf.readableBytes());
+    System.err.println("writableBytes: " + buf.writableBytes());
+
+    //
+    System.err.println("\n--------- before -------------");
+    System.err.println("capacity: " + buf.capacity());
+    buf.markReaderIndex();
+    System.err.println("buf: " + HexUtils.bytesToHex(buf.readBytes(), " | ", 4));
+    buf.resetReaderIndex();
+    System.err.println("buf2: " + HexUtils.bytesToHex(buf.array(), " | ", 4));
+    System.err.println("readerIndex: " + buf.getReaderIndex());
+    System.err.println("writerIndex: " + buf.getWriterIndex());
+    System.err.println("readableBytes: " + buf.readableBytes());
+    System.err.println("writableBytes: " + buf.writableBytes());
+
+    System.err.println("write before: " + HexUtils.bytesToHex(buf.readBytes(20), " | ", 4));
+
+    buf.write(bytes);
+    System.err.println("capacity2: " + buf.capacity());
+    System.err.println("write2 ==> " + buf.readableBytes());
+    System.err.println("\n");
+    buf.skipBytes(10);
+    System.err.println("capacity2: " + buf.capacity());
+    System.err.println("write2 ==> " + buf.readableBytes());
+
+    //buf.allocateNewBuf(buf.capacity() + 50);
+    buf.write(bytes);
+    buf.write(bytes);
+    buf.write(bytes);
+
+    buf.skipBytes(3);
+
+    r.nextBytes(bytes);
+    buf.write(bytes);
+
+    System.err.println("\n--------- after -------------");
+    buf.markReaderIndex();
+    System.err.println("capacity: " + buf.capacity());
+    System.err.println("buf: " + HexUtils.bytesToHex(buf.readBytes(), " | ", 4));
+    buf.resetReaderIndex();
+    System.err.println("buf2: " + HexUtils.bytesToHex(buf.array(), " | ", 10));
+    System.err.println("readerIndex: " + buf.getReaderIndex());
+    System.err.println("writerIndex: " + buf.getWriterIndex());
+    System.err.println("readableBytes: " + buf.readableBytes());
+    System.err.println("writableBytes: " + buf.writableBytes());
+
+    System.err.println("\n");
+
+//    buf.write(bytes);
+//    buf.write(bytes);
+
+  }
 
   public static final byte[] EMPTY = new byte[0];
+  // 4MB
+  public static final int MAX_CAPACITY = (1024 << 10) * 4;
 
   /**
    * 数据缓冲区
@@ -37,6 +119,14 @@ public class ByteBuf {
    * 标记是否仅仅可读取
    */
   private boolean markedReadonly = false;
+  /**
+   * 最大内存空间
+   */
+  private int maxCapacity = MAX_CAPACITY;
+  /**
+   * 是否自动扩容
+   */
+  private boolean expandable = true;
 
   public ByteBuf() {
     this(256);
@@ -44,6 +134,14 @@ public class ByteBuf {
 
   public ByteBuf(int capacity) {
     this(new byte[capacity]);
+  }
+
+  public ByteBuf(int capacity, int maxCapacity) {
+    this(new byte[capacity]);
+    this.maxCapacity = maxCapacity;
+    if (maxCapacity < capacity) {
+      throw new IllegalArgumentException("(maxCapacity >= capacity) == true");
+    }
   }
 
   public ByteBuf(byte[] array) {
@@ -71,6 +169,30 @@ public class ByteBuf {
   protected ByteBuf array(byte[] array) {
     this.array = array;
     return this;
+  }
+
+  /**
+   * @return 获取最大容量
+   */
+  public int maxCapacity() {
+    return maxCapacity;
+  }
+
+  /**
+   * 最大容量
+   *
+   * @param maxCapacity 容量
+   */
+  public void maxCapacity(int maxCapacity) {
+    this.maxCapacity = maxCapacity;
+  }
+
+  public boolean isExpandable() {
+    return expandable;
+  }
+
+  public void setExpandable(boolean expandable) {
+    this.expandable = expandable;
   }
 
   /**
@@ -147,6 +269,9 @@ public class ByteBuf {
    * @return 获取缓冲区大小
    */
   public int capacity() {
+    if (isExpandable()) {
+      return maxCapacity();
+    }
     return array().length;
   }
 
@@ -166,22 +291,28 @@ public class ByteBuf {
     this.readonly = readonly;
   }
 
-  protected boolean isPositive() {
-    return writerIndex > readerIndex;
+  /**
+   * @return 获取可写入长度
+   */
+  public int writableBytes() {
+    if (isExpandable()) {
+      return capacity() - readableBytes0();
+    }
+    return writableBytes0();
   }
 
   /**
    * @return 获取可写入长度
    */
-  public int writableBytes() {
+  protected int writableBytes0() {
     if (isReadonly()) {
       return 0;
     }
     if (writerIndex == readerIndex) {
-      return capacity();
+      return array().length;
     }
-    return isPositive()
-        ? capacity() - (writerIndex - readerIndex)
+    return writerIndex > readerIndex
+        ? array().length - (writerIndex - readerIndex)
         : (readerIndex - writerIndex);
   }
 
@@ -189,15 +320,22 @@ public class ByteBuf {
    * @return 获取可读取长度
    */
   public int readableBytes() {
+    return readableBytes0();
+  }
+
+  /**
+   * @return 获取可读取长度
+   */
+  protected int readableBytes0() {
     if (isReadonly()) {
-      return capacity();
+      return array().length;
     }
     if (writerIndex == readerIndex) {
       return 0;
     }
-    return isPositive()
+    return writerIndex > readerIndex
         ? (writerIndex - readerIndex)
-        : capacity() - (readerIndex - writerIndex);
+        : array().length - (readerIndex - writerIndex);
   }
 
   /**
@@ -297,6 +435,18 @@ public class ByteBuf {
    */
   protected ByteBuf writeBytes0(byte[] src, int srcPos, int len) {
     return writeBytes0(src, srcPos, this, len);
+  }
+
+  protected void ensureWritable(int grow) {
+    int remaining = writableBytes0();
+    if (remaining < grow) {
+      if (maxCapacity() < (array().length + grow)) {
+        throw new IllegalStateException("无法申请更大内存空间!");
+      }
+      // 申请新的缓冲区
+      int capacity = Math.min(maxCapacity(), (int) (array().length + grow * 1.5));
+      allocateNewBuf(this, capacity);
+    }
   }
 
   protected ByteBuf wrap(byte[] buf, int start) {
@@ -420,7 +570,12 @@ public class ByteBuf {
    * @return 返回目标缓冲
    */
   protected static ByteBuf writeBytes0(byte[] src, int srcPos, ByteBuf dest, int len) {
+    if (dest.isExpandable()) {
+      dest.ensureWritable(len);
+    }
+
     checkWritableBound(dest, len);
+
     if (len + srcPos >= src.length) {
       for (int i = srcPos; i < src.length; i++) {
         writeByte0(dest, src[i]);
@@ -435,6 +590,7 @@ public class ByteBuf {
         writeByte0(dest, src[i]);
       }
     }
+
     return dest;
   }
 
@@ -480,7 +636,7 @@ public class ByteBuf {
    */
   protected static int modifyWriterIndex(ByteBuf buf, int len) {
     int index = buf.writerIndex;
-    buf.setWriterIndex((index + len) % buf.capacity());
+    buf.setWriterIndex((index + len) % buf.array().length);
     buf.setReadonly(buf.readerIndex == buf.writerIndex);
     return index;
   }
@@ -495,7 +651,7 @@ public class ByteBuf {
   protected static int modifyReaderIndex(ByteBuf buf, int len) {
     int index = buf.readerIndex;
     len = Math.max(len, 0);
-    buf.setReaderIndex((index + len) % buf.capacity());
+    buf.setReaderIndex((index + len) % buf.array().length);
     buf.setReadonly(len <= 0 && buf.isReadonly());
     return index;
   }
@@ -561,6 +717,7 @@ public class ByteBuf {
     buf.clear();
     buf.array(array);
     modifyWriterIndex(buf, readableBytes);
+    // TODO: 2020/9/10 待实现读取和写入后的重置
     return buf;
   }
 
