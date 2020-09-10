@@ -1,11 +1,18 @@
 package com.benefitj.mqtt.buf;
 
+import java.util.Arrays;
+
+/**
+ * 字节缓冲
+ */
 public class ByteBuf {
+
+  public static final byte[] EMPTY = new byte[0];
 
   /**
    * 数据缓冲区
    */
-  private byte[] buf;
+  private byte[] array;
   /**
    * 读取的位置
    */
@@ -14,17 +21,37 @@ public class ByteBuf {
    * 写入的位置
    */
   private int writerIndex = 0;
+  /**
+   * 是否仅仅可读取
+   */
+  private boolean readonly = false;
+  /**
+   * 标记读取
+   */
+  private int markedReaderIndex = 0;
+  /**
+   * 标记写入
+   */
+  private int markedWriterIndex = 0;
+  /**
+   * 标记是否仅仅可读取
+   */
+  private boolean markedReadonly = false;
 
   public ByteBuf() {
-    this(new byte[256], 0, 0);
+    this(256);
   }
 
-  public ByteBuf(byte[] buf) {
-    this(buf, 0, buf.length);
+  public ByteBuf(int capacity) {
+    this(new byte[capacity]);
   }
 
-  public ByteBuf(byte[] buf, int readerIndex, int writerIndex) {
-    this.setBuf(buf);
+  public ByteBuf(byte[] array) {
+    this(array, 0, 0);
+  }
+
+  public ByteBuf(byte[] array, int readerIndex, int writerIndex) {
+    this.array(array);
     this.setReaderIndex(readerIndex);
     this.setWriterIndex(writerIndex);
   }
@@ -32,17 +59,17 @@ public class ByteBuf {
   /**
    * @return 获取缓冲数组
    */
-  public byte[] getBuf() {
-    return buf;
+  protected byte[] array() {
+    return array;
   }
 
   /**
    * 设置缓冲数组
    *
-   * @param buf 数组
+   * @param array 数组
    */
-  public ByteBuf setBuf(byte[] buf) {
-    this.buf = buf;
+  protected ByteBuf array(byte[] array) {
+    this.array = array;
     return this;
   }
 
@@ -58,7 +85,7 @@ public class ByteBuf {
    *
    * @param readerIndex 下标
    */
-  public ByteBuf setReaderIndex(int readerIndex) {
+  protected ByteBuf setReaderIndex(int readerIndex) {
     this.readerIndex = readerIndex;
     return this;
   }
@@ -75,20 +102,44 @@ public class ByteBuf {
    *
    * @param writerIndex 下标
    */
-  public ByteBuf setWriterIndex(int writerIndex) {
+  protected ByteBuf setWriterIndex(int writerIndex) {
     this.writerIndex = writerIndex;
     return this;
   }
 
   /**
-   * 设置位置
-   *
-   * @param readerIndex 读取位置
-   * @param writerIndex 写入位置
+   * 标记读取的位置
    */
-  public ByteBuf setIndex(int readerIndex, int writerIndex) {
-    this.setReaderIndex(readerIndex);
-    this.setWriterIndex(writerIndex);
+  public ByteBuf markReaderIndex() {
+    this.markedReaderIndex = this.readerIndex;
+    this.markedReadonly = this.readonly;
+    return this;
+  }
+
+  /**
+   * 重置为标记的读取位置
+   */
+  public ByteBuf resetReaderIndex() {
+    this.setReaderIndex(this.markedReaderIndex);
+    this.setReadonly(this.markedReadonly);
+    return this;
+  }
+
+  /**
+   * 标记写入位置
+   */
+  public ByteBuf markWriterIndex() {
+    this.markedWriterIndex = this.writerIndex;
+    this.markedReadonly = this.readonly;
+    return this;
+  }
+
+  /**
+   * 重置为标记的写入位置
+   */
+  public ByteBuf resetWriterIndex() {
+    this.setWriterIndex(this.markedWriterIndex);
+    this.setReadonly(this.markedReadonly);
     return this;
   }
 
@@ -96,38 +147,82 @@ public class ByteBuf {
    * @return 获取缓冲区大小
    */
   public int capacity() {
-    return getBuf().length;
-  }
-
-  public boolean isPositive() {
-    return writerIndex > readerIndex;
+    return array().length;
   }
 
   /**
-   * @return 获取可读取长度
+   * @return 获取是否为只读状态
    */
-  public int readableBytes() {
-    return isPositive()
-        ? writerIndex - readerIndex
-        : capacity() - (readerIndex - writerIndex);
+  protected boolean isReadonly() {
+    return readonly;
+  }
+
+  /**
+   * 设置只读状态
+   *
+   * @param readonly 状态
+   */
+  protected void setReadonly(boolean readonly) {
+    this.readonly = readonly;
+  }
+
+  protected boolean isPositive() {
+    return writerIndex > readerIndex;
   }
 
   /**
    * @return 获取可写入长度
    */
   public int writableBytes() {
-    int remaining = isPositive()
-        ? writerIndex - readerIndex
-        : readerIndex - writerIndex;
-    return capacity() - remaining;
+    if (isReadonly()) {
+      return 0;
+    }
+    if (writerIndex == readerIndex) {
+      return capacity();
+    }
+    return isPositive()
+        ? capacity() - (writerIndex - readerIndex)
+        : (readerIndex - writerIndex);
+  }
+
+  /**
+   * @return 获取可读取长度
+   */
+  public int readableBytes() {
+    if (isReadonly()) {
+      return capacity();
+    }
+    if (writerIndex == readerIndex) {
+      return 0;
+    }
+    return isPositive()
+        ? (writerIndex - readerIndex)
+        : capacity() - (readerIndex - writerIndex);
   }
 
   /**
    * 清空读写
    */
   public ByteBuf clear() {
-    this.setIndex(0, 0);
+    this.setWriterIndex(0);
+    this.setReaderIndex(0);
+    this.setReadonly(false);
+    fill(array(), (byte) 0x00);
     return this;
+  }
+
+  /**
+   * @return 申请新的缓冲区
+   */
+  public ByteBuf allocateNewBuf() {
+    return allocateNewBuf(this);
+  }
+
+  /**
+   * @return 申请新的缓冲区
+   */
+  public ByteBuf allocateNewBuf(int newCapacity) {
+    return allocateNewBuf(this, newCapacity);
   }
 
   /**
@@ -139,7 +234,6 @@ public class ByteBuf {
     checkWritableBound(this, 1);
     return writeByte0(this, value);
   }
-
 
   /**
    * 写入
@@ -158,7 +252,7 @@ public class ByteBuf {
    * @param len   长度
    */
   public ByteBuf write(byte[] src, int start, int len) {
-    return write(src, start, this, len);
+    return writeBytes0(src, start, len);
   }
 
   /**
@@ -178,7 +272,7 @@ public class ByteBuf {
    * @param len   长度
    */
   public ByteBuf write(ByteBuf src, int start, int len) {
-    return write(src.getBuf(), start, this, len);
+    return write(src.array(), start, len);
   }
 
   /**
@@ -190,59 +284,117 @@ public class ByteBuf {
    * @param len    写入数据的长度
    */
   public ByteBuf write(byte[] src, int srcPos, ByteBuf dest, int len) {
-    checkWritableBound(dest, len);
-    // copy bytes
-    byte[] buf = dest.getBuf();
-    if (dest.isPositive()) {
-      int positiveLen = dest.capacity() - dest.getWriterIndex();
-      // from writerIndex ~> capacity
-      dest.setBytes(src, srcPos, buf, dest.getWriterIndex(), positiveLen);
-      // from 0 ~> readerIndex
-      dest.setBytes(src, srcPos, buf, 0, len - positiveLen);
-      setWriterIndex(dest, len);
-    } else {
-      // from writerIndex ~> readerIndex
-      dest.setBytes(src, srcPos, buf, dest.getWriterIndex(), len);
-      setWriterIndex(dest, len);
-    }
-    return dest;
+    return writeBytes0(src, srcPos, dest, len);
   }
 
-  protected ByteBuf setBytes(byte[] src, int srcPos, byte[] dest, int destPos, int len) {
-    if (len >= 0) {
-      System.arraycopy(src, srcPos, dest, destPos, len);
-    }
+  /**
+   * 写入字节数组
+   *
+   * @param src    原数据
+   * @param srcPos 原数据开始读取的位置
+   * @param len    写入的长度
+   * @return 返回目标缓冲
+   */
+  protected ByteBuf writeBytes0(byte[] src, int srcPos, int len) {
+    return writeBytes0(src, srcPos, this, len);
+  }
+
+  protected ByteBuf wrap(byte[] buf, int start) {
+    return new ByteBuf(buf, 0, start);
+  }
+
+  /**
+   * 跳过指定字节
+   *
+   * @param len 跳过的字节长度
+   * @return 返回
+   */
+  public ByteBuf skipBytes(int len) {
+    modifyReaderIndex(this, Math.min(readableBytes(), len));
     return this;
   }
 
-  private ByteBuf wrap(byte[] buf, int start) {
-    return new ByteBuf(buf, start, start);
+  /**
+   * 读取字节
+   *
+   * @return 返回可读取的全部数据
+   */
+  public byte[] readBytes() {
+    int readableBytes = readableBytes();
+    return readableBytes > 0 ? readBytes(readableBytes) : EMPTY;
   }
 
-  public byte[] read(int size) {
-    ByteBuf src = read(new byte[size], 0, size);
-    return src.getBuf();
+  /**
+   * 读取字节
+   *
+   * @param len 长度
+   * @return 返回数据
+   */
+  public byte[] readBytes(int len) {
+    return readBytes(new byte[len], 0, len);
   }
 
-  public ByteBuf read(byte[] dest, int destPos, int len) {
-    ByteBuf src = wrap(dest, destPos);
-    return read(this, src, len);
-  }
-
-  public static ByteBuf read(ByteBuf src, ByteBuf dest, int len) {
-    checkReadableBound(src, len);
-    // 读取
-    // 如果 writerIndex > readerIndex ? 直接读取 : 计算读取逻辑
-    if (src.isPositive()) {
-      for (int i = 0; i < len; i++) {
-        dest.writeByte(src.readByte());
-      }
+  /**
+   * 读取字节
+   *
+   * @param dest    目标缓冲
+   * @param destPos 目标缓冲的开始位置
+   * @param len     长度
+   * @return 返回读取的数据
+   */
+  public byte[] readBytes(byte[] dest, int destPos, int len) {
+    checkReadableBound(this, len);
+    for (int i = 0; i < len; i++) {
+      dest[i + destPos] = readByte0(this);
     }
-
-
     return dest;
   }
 
+  /**
+   * 读取
+   *
+   * @param len 长度
+   * @return 返回读取的数据
+   */
+  public ByteBuf read(int len) {
+    checkReadableBound(this, len);
+    ByteBuf dest = wrap(new byte[len], 0);
+    return read(this, dest, len);
+  }
+
+  /**
+   * 读取
+   *
+   * @param dest    目标缓冲
+   * @param destPos 目标缓冲的开始位置
+   * @param len     长度
+   * @return 返回读取的数据
+   */
+  public ByteBuf read(byte[] dest, int destPos, int len) {
+    checkReadableBound(this, len);
+    ByteBuf destBuf = wrap(dest, destPos);
+    return read(this, destBuf, len);
+  }
+
+  /**
+   * 读取
+   *
+   * @param src  原数据
+   * @param dest 目标缓冲
+   * @param len  长度
+   * @return 返回读取的数据
+   */
+  public static ByteBuf read(ByteBuf src, ByteBuf dest, int len) {
+    checkReadableBound(src, len);
+    for (int i = 0; i < len; i++) {
+      writeByte0(dest, readByte0(src));
+    }
+    return dest;
+  }
+
+  /**
+   * @return 读取单个字节
+   */
   public byte readByte() {
     checkReadableBound(this, 1);
     return readByte0(this);
@@ -251,11 +403,48 @@ public class ByteBuf {
   /**
    * 写入数据
    *
-   * @param buf   字节缓冲对象
+   * @param buf   缓冲
    * @param value 数值
    */
   protected static ByteBuf writeByte0(ByteBuf buf, byte value) {
-    return setByte0(buf, value, setWriterIndex(buf, 1));
+    return setByte0(buf, value, modifyWriterIndex(buf, 1));
+  }
+
+  /**
+   * 写入字节数组
+   *
+   * @param src    原数据
+   * @param srcPos 原数据开始读取的位置
+   * @param dest   目标缓冲
+   * @param len    写入的长度
+   * @return 返回目标缓冲
+   */
+  protected static ByteBuf writeBytes0(byte[] src, int srcPos, ByteBuf dest, int len) {
+    checkWritableBound(dest, len);
+    if (len + srcPos >= src.length) {
+      for (int i = srcPos; i < src.length; i++) {
+        writeByte0(dest, src[i]);
+      }
+      // 拷贝剩余长度
+      int remaining = (len + srcPos) % src.length;
+      for (int i = 0; i < remaining; i++) {
+        writeByte0(dest, src[i]);
+      }
+    } else {
+      for (int i = srcPos; i < len; i++) {
+        writeByte0(dest, src[i]);
+      }
+    }
+    return dest;
+  }
+
+  /**
+   * 读取数据
+   *
+   * @param buf 缓冲
+   */
+  protected static byte readByte0(ByteBuf buf) {
+    return getByte0(buf, modifyReaderIndex(buf, 1));
   }
 
   /**
@@ -267,30 +456,8 @@ public class ByteBuf {
    * @return 返回缓冲区
    */
   protected static ByteBuf setByte0(ByteBuf buf, byte value, int index) {
-    buf.getBuf()[index] = value;
+    buf.array()[index] = value;
     return buf;
-  }
-
-  /**
-   * 设置新的写入的位置
-   *
-   * @param buf 缓冲区
-   * @param len 长度
-   * @return 返回改变之前的位置
-   */
-  protected static int setWriterIndex(ByteBuf buf, int len) {
-    int index = buf.writerIndex;
-    buf.setWriterIndex(buf.capacity() % (index + len));
-    return index;
-  }
-
-  /**
-   * 读取数据
-   *
-   * @param buf 缓冲区
-   */
-  protected static byte readByte0(ByteBuf buf) {
-    return getByte0(buf, setReaderIndex(buf, 1));
   }
 
   /**
@@ -301,7 +468,21 @@ public class ByteBuf {
    * @return 返回读取的字节
    */
   protected static byte getByte0(ByteBuf buf, int index) {
-    return buf.getBuf()[index];
+    return buf.array()[index];
+  }
+
+  /**
+   * 设置新的写入的位置
+   *
+   * @param buf 缓冲区
+   * @param len 长度
+   * @return 返回改变之前的位置
+   */
+  protected static int modifyWriterIndex(ByteBuf buf, int len) {
+    int index = buf.writerIndex;
+    buf.setWriterIndex((index + len) % buf.capacity());
+    buf.setReadonly(buf.readerIndex == buf.writerIndex);
+    return index;
   }
 
   /**
@@ -311,23 +492,76 @@ public class ByteBuf {
    * @param len 长度
    * @return 返回改变之前的位置
    */
-  protected static int setReaderIndex(ByteBuf buf, int len) {
+  protected static int modifyReaderIndex(ByteBuf buf, int len) {
     int index = buf.readerIndex;
-    buf.setReaderIndex(buf.capacity() % (index + len));
+    len = Math.max(len, 0);
+    buf.setReaderIndex((index + len) % buf.capacity());
+    buf.setReadonly(len <= 0 && buf.isReadonly());
     return index;
   }
 
-  protected static void checkWritableBound(ByteBuf buf, int size) {
+  /**
+   * 检查可写入长度
+   *
+   * @param buf  缓冲
+   * @param size 要求的大小
+   */
+  public static void checkWritableBound(ByteBuf buf, int size) {
     if (buf.writableBytes() < size) {
       throw new IllegalStateException("剩余可写入长度不足，写入长度: " + size + ", 可写入长度: " + buf.writableBytes());
     }
   }
 
-  protected static void checkReadableBound(ByteBuf buf, int size) {
+  /**
+   * 检查可读取的长度
+   *
+   * @param buf  缓冲
+   * @param size 要求的大小
+   */
+  public static void checkReadableBound(ByteBuf buf, int size) {
     if (buf.readableBytes() < size) {
-      throw new IllegalArgumentException("数据可读取长度不足， 读取长度: " + size + ", 可读取长度: " + buf.readableBytes());
+      throw new IllegalArgumentException("数据可读取长度不足，读取长度: " + size + ", 可读取长度: " + buf.readableBytes());
     }
   }
 
+  /**
+   * 填充
+   *
+   * @param array 数组
+   * @param value 填充的值
+   */
+  public static void fill(byte[] array, byte value) {
+    if (array != null && array.length > 0) {
+      Arrays.fill(array, value);
+    }
+  }
+
+  /**
+   * 重新申请缓冲区
+   *
+   * @param buf 缓冲区
+   */
+  public static ByteBuf allocateNewBuf(ByteBuf buf) {
+    return allocateNewBuf(buf, buf.capacity() * 2);
+  }
+
+  /**
+   * 重新申请缓冲区
+   *
+   * @param buf         缓冲区
+   * @param newCapacity 新缓冲区的大小
+   */
+  public static ByteBuf allocateNewBuf(ByteBuf buf, int newCapacity) {
+    int readableBytes = buf.readableBytes();
+    if (readableBytes > newCapacity) {
+      throw new IllegalArgumentException("新分配的缓冲区无法存放全部数据, newCapacity: " + newCapacity + ", min size: " + readableBytes);
+    }
+    byte[] array = new byte[newCapacity];
+    buf.readBytes(array, 0, readableBytes);
+    buf.clear();
+    buf.array(array);
+    modifyWriterIndex(buf, readableBytes);
+    return buf;
+  }
 
 }

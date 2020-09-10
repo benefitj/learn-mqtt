@@ -4,6 +4,7 @@ import com.benefitj.core.HexUtils;
 import com.benefitj.core.IdUtils;
 import com.benefitj.core.local.LocalCacheFactory;
 import com.benefitj.core.local.LocalMapCache;
+import com.benefitj.mqtt.buf.ByteBuf;
 import com.benefitj.mqtt.packet.CONNECT;
 import com.benefitj.mqtt.packet.ControlPacketType;
 import com.benefitj.mqtt.packet.impl.ConnectImpl;
@@ -207,7 +208,7 @@ public class MqttUtils {
       throw new IllegalStateException("连接标志为1，必须设置will topic和will message");
     }
 
-    final ByteBuffer buf = ByteBuffer.allocate(1024);
+    final ByteBuf buf = new ByteBuf(1024);
     // 固定报头
     ControlPacketType packetType = connect.getType();
     //byte type = (byte) (packetType.getValue() << 4);
@@ -225,7 +226,7 @@ public class MqttUtils {
     // 协议名
     put(buf, connect.getProtocolName(), "MQTT");
     // 协议等级
-    buf.put((byte) (connect.getProtocolLevel() & 0xFF));
+    buf.writeByte((byte) (connect.getProtocolLevel() & 0xFF));
 
     // 连接标志
     // Bit   7         6          5          4  3       2           1             0
@@ -254,9 +255,9 @@ public class MqttUtils {
       }
     }
     // 连接标志
-    buf.put(connectFlags);
+    buf.writeByte(connectFlags);
     // 保持连接
-    buf.put(shortToBytes((short) connect.getKeepAlive()));
+    buf.write(shortToBytes((short) connect.getKeepAlive()));
 
     // 有效载荷 ...
 
@@ -271,24 +272,17 @@ public class MqttUtils {
     // password
     put(buf, connect.getPassword());
 
-    int position = buf.position();
-    System.err.println("length: " + position);
-    System.err.println("buf ==>: " + HexUtils.bytesToHex(buf.array()));
-
-    buf.flip();
-    byte[] buf2 = getBuff(position);
-    buf.get(buf2);
-    System.err.println("buf2 ==>: " + HexUtils.bytesToHex(buf2));
+    System.err.println("readBytes ==>: " + HexUtils.bytesToHex(buf.readBytes()));
 
     return null;
   }
 
 
-  private static ByteBuffer put(ByteBuffer buf, String s) {
+  private static ByteBuf put(ByteBuf buf, String s) {
     return put(buf, s, null);
   }
 
-  private static ByteBuffer put(ByteBuffer buf, String s, String defaultValue) {
+  private static ByteBuf put(ByteBuf buf, String s, String defaultValue) {
     if (StringUtils.isNotBlank(defaultValue) && StringUtils.isBlank(s)) {
       s = defaultValue;
     }
@@ -298,17 +292,17 @@ public class MqttUtils {
     return put(buf, (byte[]) null);
   }
 
-  private static ByteBuffer put(ByteBuffer buf, byte[] data) {
+  private static ByteBuf put(ByteBuf buf, byte[] data) {
     return put(buf, data, true);
   }
 
-  private static ByteBuffer put(ByteBuffer buf, byte[] data, boolean length) {
+  private static ByteBuf put(ByteBuf buf, byte[] data, boolean length) {
     if (data != null) {
-      buf.put(shortToBytes(data.length));
-      buf.put(data);
+      buf.write(shortToBytes(data.length));
+      buf.write(data);
     } else {
       if (length) {
-        buf.put(shortToBytes(0));
+        buf.write(shortToBytes(0));
       }
     }
     return buf;
