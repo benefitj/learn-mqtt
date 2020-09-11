@@ -4,13 +4,12 @@ import com.benefitj.core.HexUtils;
 import com.benefitj.core.IdUtils;
 import com.benefitj.core.local.LocalCacheFactory;
 import com.benefitj.core.local.LocalMapCache;
-import com.benefitj.mqtt.buf.ByteBuf;
+import com.benefitj.mqtt.buf.ByteArrayBuf;
 import com.benefitj.mqtt.packet.CONNECT;
 import com.benefitj.mqtt.packet.ControlPacketType;
 import com.benefitj.mqtt.packet.impl.ConnectImpl;
 import org.apache.commons.lang3.StringUtils;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -208,7 +207,7 @@ public class MqttUtils {
       throw new IllegalStateException("连接标志为1，必须设置will topic和will message");
     }
 
-    final ByteBuf buf = new ByteBuf(1024);
+    final ByteArrayBuf buf = new ByteArrayBuf(1024 << 4);
     // 固定报头
     ControlPacketType packetType = connect.getType();
     //byte type = (byte) (packetType.getValue() << 4);
@@ -272,17 +271,19 @@ public class MqttUtils {
     // password
     put(buf, connect.getPassword());
 
+    buf.markReaderIndex();
     System.err.println("readBytes ==>: " + HexUtils.bytesToHex(buf.readBytes()));
+    buf.resetReaderIndex();
 
-    return null;
+    return buf.readBytes();
   }
 
 
-  private static ByteBuf put(ByteBuf buf, String s) {
+  private static ByteArrayBuf put(ByteArrayBuf buf, String s) {
     return put(buf, s, null);
   }
 
-  private static ByteBuf put(ByteBuf buf, String s, String defaultValue) {
+  private static ByteArrayBuf put(ByteArrayBuf buf, String s, String defaultValue) {
     if (StringUtils.isNotBlank(defaultValue) && StringUtils.isBlank(s)) {
       s = defaultValue;
     }
@@ -292,11 +293,11 @@ public class MqttUtils {
     return put(buf, (byte[]) null);
   }
 
-  private static ByteBuf put(ByteBuf buf, byte[] data) {
+  private static ByteArrayBuf put(ByteArrayBuf buf, byte[] data) {
     return put(buf, data, true);
   }
 
-  private static ByteBuf put(ByteBuf buf, byte[] data, boolean length) {
+  private static ByteArrayBuf put(ByteArrayBuf buf, byte[] data, boolean length) {
     if (data != null) {
       buf.write(shortToBytes(data.length));
       buf.write(data);
